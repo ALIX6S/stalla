@@ -1,0 +1,88 @@
+name: stalla
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: stalla-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: stalla
+      MYSQL_USER: stalla
+      MYSQL_PASSWORD: stalla_pass
+    ports:
+      - "3307:3306"
+    volumes:
+      - stalla_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
+  api:
+    build:
+      context: ../backend
+      dockerfile: ../infra/docker/api.Dockerfile
+    container_name: stalla-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: ../backend/.env
+    environment:
+      PORT: 4000
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: stalla
+      DB_USER: stalla
+      DB_PASSWORD: stalla_pass
+      WEB_BASE_URL: http://localhost:5173
+    ports:
+      - "4000:4000"
+    volumes:
+      - ../backend/receipts:/app/receipts
+
+  web:
+    build:
+      context: ../stalla_web
+      dockerfile: ../infra/docker/web.Dockerfile
+    container_name: stalla-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      VITE_API_BASE_URL: http://localhost:4000/api
+    ports:
+      - "5173:5173"
+    volumes:
+      - ../stalla_web/src:/app/src
+      - ../stalla_web/public:/app/public
+
+  # Build de l'APK : docker compose --profile mobile run --rm mobile
+  mobile:
+    profiles: [mobile]
+    build:
+      context: .
+      dockerfile: docker/mobile.Dockerfile
+    image: stalla-mobile-builder
+    volumes:
+      - ../stalla_mobile:/app
+      - stalla_gradle_cache:/cache/gradle
+      - stalla_pub_cache:/cache/pub
+      - stalla_android_keys:/root/.android   # clé debug stable entre deux builds
+    environment:
+      API_BASE_URL: ${API_BASE_URL:-http://localhost:4000/api}
+    command: >
+      sh -c "flutter pub get &&
+             flutter build apk --debug --dart-define=API_BASE_URL=$$API_BASE_URL"
+
+volumes:
+  stalla_mysql_data:
+  stalla_gradle_cache:
+    name: stalla_gradle_cache
+  stalla_pub_cache:
+    name: stalla_pub_cache
+  stalla_android_keys:
+    name: stalla_android_keys
