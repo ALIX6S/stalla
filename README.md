@@ -1,205 +1,67 @@
-# STALLA - Plateforme Marché (Web Admin + Mobile Vendeur + Backend API)
+# STALLA
 
-STALLA est une solution complète de gestion de marché:
-- `stalla_web`: interface **Admin** (React + Vite + TypeScript)
-- `stalla_mobile`: application **Vendeur** (Flutter)
-- `backend`: API REST + logique métier (Node.js + Express + MySQL)
+**Gestion de stands de marché** : les administrateurs attribuent les stands, encaissent les loyers et suivent les dettes depuis le web ; les vendeurs consultent leur situation depuis leur téléphone.
 
-## Architecture
+| Composant | Techno | Dossier |
+|---|---|---|
+| API REST | Node.js · Express · Sequelize · MySQL | [`backend/`](backend) |
+| Back-office web (admin) | React · TypeScript · Vite | [`stalla_web/`](stalla_web) |
+| Application vendeur | Flutter (Android / iOS) | [`stalla_mobile/`](stalla_mobile) |
 
-- Backend API: `http://localhost:4000`
-- Base API: `http://localhost:4000/api`
-- Web Admin (dev): `http://localhost:5173`
-- Mobile Vendeur: Flutter (Android/iOS)
+## Fonctionnalités
 
-Le backend expose notamment:
-- routes admin: `/api/admin/*`
-- routes auth: `/api/auth/*`
-- routes vendeur: `/api/vendor/*`
-- alias de compatibilité vendeur: `/api/v1/vendor/*`
+- **Stands** : zones A–D, catégories (standard, premium…), loyers mensuels.
+- **Vendeurs** : création par l'admin, candidatures, mot de passe initial, réinitialisation par email.
+- **Allocations & paiements** : attribution vendeur ↔ stand, encaissement, reçu PDF.
+- **Dettes** : calcul automatique (job quotidien), rapport des débiteurs, taux de recouvrement.
+- **Support** : numéro d'assistance configurable, affiché dans l'app mobile.
 
-## Structure du repo
+## Aperçu
 
-```text
-Stalla/
-├── backend/
-├── stalla_web/
-├── stalla_mobile/
-├── docs/
-└── docker-compose.backend.yml
-```
+### Web — back-office admin
 
-## Prérequis
+| Connexion | Création de compte |
+|---|---|
+| ![Connexion](docs/screenshots/web-login.png) | ![Création de compte](docs/screenshots/web-register.png) |
+| **Dashboard** | **Gestion des stands** |
+| ![Dashboard](docs/screenshots/web-dashboard.png) | ![Stands](docs/screenshots/web-stalls.png) |
+| **Vendeurs** | **Candidatures** |
+| ![Vendeurs](docs/screenshots/web-vendors.png) | ![Candidatures](docs/screenshots/web-applications.png) |
+| **Allocations** | **Paiements** |
+| ![Allocations](docs/screenshots/web-allocations.png) | ![Paiements](docs/screenshots/web-payments.png) |
+| **Débiteurs** | **Support** |
+| ![Débiteurs](docs/screenshots/web-debtors.png) | ![Support](docs/screenshots/web-support.png) |
 
-- Node.js 18+
-- npm
-- Flutter SDK 3+
-- Android SDK (pour APK)
-- Docker + Docker Compose (optionnel mais recommandé pour backend)
+### Mobile — application vendeur
 
-## 1) Lancer le backend
+| Accueil public | Stands disponibles | Demande de stand | Connexion | Tableau de bord |
+|---|---|---|---|---|
+| ![Accueil public](docs/screenshots/mobile-landing.png) | ![Stands disponibles](docs/screenshots/mobile-stands-dispo.png) | ![Demande de stand](docs/screenshots/mobile-inscription.png) | ![Connexion](docs/screenshots/mobile-login.png) | ![Tableau de bord](docs/screenshots/mobile-accueil.png) |
 
-### Option A - Docker (recommandé)
+## Démarrage rapide
 
-Depuis la racine du projet:
-
-```bash
-docker compose -f docker-compose.backend.yml up -d --build
-```
-
-Vérifier:
+Seul Docker est requis (et `adb` pour le téléphone, optionnel).
 
 ```bash
-docker compose -f docker-compose.backend.yml ps
-curl http://localhost:4000/health
+infra/scripts/up.sh       # DB + API + web (crée backend/.env si absent)
+infra/scripts/mobile.sh   # build APK + installation sur le téléphone USB
+infra/scripts/down.sh     # arrêt (--purge : supprime base et caches)
 ```
 
-Arrêter:
+- Web admin : http://localhost:5173
+- API : http://localhost:4000 · Swagger : http://localhost:4000/api-docs
+- MySQL : `localhost:3307`
 
-```bash
-docker compose -f docker-compose.backend.yml down
-```
+Premier admin : page « Créer un compte » du web (ou `POST /api/auth/register-admin`).
+Détails : [`infra/README.md`](infra/README.md) et [`docs/SETUP.md`](docs/SETUP.md).
 
-Réinitialiser DB + volumes:
+## Documentation
 
-```bash
-docker compose -f docker-compose.backend.yml down -v
-```
-
-### Option B - Local (sans Docker)
-
-```bash
-cd backend
-npm install
-npm run dev
-```
-
-## 2) Configuration backend (`backend/.env`)
-
-Exemple minimum:
-
-```env
-PORT=4000
-DB_HOST=localhost
-DB_PORT=3306
-DB_NAME=stalla
-DB_USER=root
-DB_PASSWORD=
-JWT_SECRET=une_cle_secrete_longue_et_complexe
-JWT_EXPIRES_IN=7d
-
-# Email (reset password / notifications)
-BREVO_API_KEY=
-BREVO_SENDER_EMAIL=
-BREVO_SENDER_NAME=STALLA
-
-# URL publique du front web (important pour les liens email)
-WEB_BASE_URL=http://localhost:5173
-```
-
-## 3) Lancer le Web Admin
-
-```bash
-cd stalla_web
-npm install
-npm run dev
-```
-
-Build production:
-
-```bash
-npm run build
-npm run preview
-```
-
-Variable optionnelle:
-
-```env
-VITE_API_BASE_URL=http://localhost:4000/api
-```
-
-## 4) Lancer le Mobile Vendeur
-
-```bash
-cd stalla_mobile
-flutter pub get
-flutter run --dart-define=API_BASE_URL=http://<IP_BACKEND>:4000/api
-```
-
-Note:
-- `API_BASE_URL` est configurable via `--dart-define`.
-- Si non fourni, l'app utilise la valeur par défaut définie dans `app_constants.dart`.
-
-## 5) Build APK (Android)
-
-```bash
-cd stalla_mobile
-flutter clean
-flutter pub get
-flutter build apk --release --dart-define=API_BASE_URL=http://<IP_BACKEND>:4000/api
-```
-
-APK généré:
-
-```text
-stalla_mobile/build/app/outputs/flutter-apk/app-release.apk
-```
-
-Installer sur téléphone:
-
-```bash
-adb install -r stalla_mobile/build/app/outputs/flutter-apk/app-release.apk
-```
-
-## 6) Déploiement backend (production)
-
-Minimum recommandé:
-- un VPS Linux (Ubuntu)
-- Docker
-- base MySQL managée ou conteneur MySQL dédié
-- nom de domaine + reverse proxy (Nginx/Caddy)
-- HTTPS (Let's Encrypt)
-
-Checklist prod:
-- `JWT_SECRET` fort
-- `WEB_BASE_URL` en URL publique HTTPS
-- variables Brevo valides
-- ports et firewall configurés
-- sauvegarde base MySQL
-
-## 7) Git workflow conseillé
-
-```bash
-# depuis ta branche de travail
-git add .
-git commit -m "feat: finalisation stalla web/mobile/backend"
-git push origin <ta-branche>
-
-# merge vers main
-git checkout main
-git pull origin main
-git merge --no-ff <ta-branche>
-git push origin main
-```
-
-## 8) Troubleshooting rapide
-
-- `Token manquant ou invalide`:
-  - vérifier Authorization header
-  - vérifier expiration JWT
-  - vérifier que mobile/web pointent vers le bon backend
-
-- `Erreur serveur lors de la connexion`:
-  - vérifier que backend + DB tournent
-  - consulter logs: `docker compose -f docker-compose.backend.yml logs -f backend`
-
-- Lien reset password invalide sur téléphone:
-  - vérifier `WEB_BASE_URL` (pas `localhost` pour appareil externe)
-  - utiliser une URL accessible depuis le téléphone
-
-## 9) Documentation complémentaire
-
-- Backend: `backend/README.md`
-- Web Admin: `stalla_web/README.md`
-- Mobile: `stalla_mobile/README.md`
-- API docs: `http://localhost:4000/api-docs`
+| Document | Contenu |
+|---|---|
+| [`infra/README.md`](infra/README.md) | Dockerfiles, compose et scripts de lancement |
+| [`docs/SETUP.md`](docs/SETUP.md) | Installation, configuration, mobile USB, dépannage |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Structure du code et flux de données |
+| [`docs/DOCUMENTATION_API.md`](docs/DOCUMENTATION_API.md) | Référence des endpoints |
+| [`docs/GUIDE_POSTMAN.md`](docs/GUIDE_POSTMAN.md) | Tester l'API avec Postman |
+| [`docs/CREER_VENDEUR_AVEC_DETTE.md`](docs/CREER_VENDEUR_AVEC_DETTE.md) | Scénario : vendeur avec dette |
