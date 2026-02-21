@@ -13,6 +13,7 @@ import {
   listVendorApplications,
   rejectVendorApplication,
   reportDebtors,
+  runDebtJobNow,
   updateSupportSettings,
 } from "../controllers/adminController.js";
 import { authenticate, authorize } from "../middlewares/auth.js";
@@ -157,5 +158,7 @@ router.get("/reports/debtors", reportDebtors);
 
 router.get("/settings/support", getSupportSettings);
 router.put("/settings/support", updateSupportSettings);
+
+router.post("/run-debt-job", runDebtJobNow);
 
 export default router;
