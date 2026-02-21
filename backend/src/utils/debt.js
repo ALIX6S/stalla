@@ -27,14 +27,23 @@ export function computeDebtForAllocation({ startDate, endDate, monthlyPrice, tot
   };
 }
 
-export function isActiveAllocation(startDate, endDate, now = new Date()) {
-  const start = new Date(startDate);
-  const end = endDate ? new Date(endDate) : null;
-  if (Number.isNaN(start.getTime())) return false;
+const sumPayments = (payments = []) => payments.reduce((sum, p) => sum + Number(p.amountPaid), 0);
 
-  const day = new Date(now.toISOString().slice(0, 10));
-  if (day < new Date(start.toISOString().slice(0, 10))) return false;
-  if (end && day > new Date(end.toISOString().slice(0, 10))) return false;
-
-  return true;
+/**
+ * Situation financière agrégée sur des allocations (avec `stall` et `payments` chargés).
+ */
+export function computeBalance(allocations = []) {
+  let totalDue = 0;
+  let totalPaid = 0;
+  for (const allocation of allocations) {
+    const stats = computeDebtForAllocation({
+      startDate: allocation.startDate,
+      endDate: allocation.endDate,
+      monthlyPrice: allocation.stall?.monthlyPrice || 0,
+      totalPaid: sumPayments(allocation.payments),
+    });
+    totalDue += stats.total_due;
+    totalPaid += stats.total_paid;
+  }
+  return { total_paid: totalPaid, total_due: totalDue, current_debt: Math.max(totalDue - totalPaid, 0) };
 }
