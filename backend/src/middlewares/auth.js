@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
-import { User } from "../database.js";
-import { config } from "../config.js";
+import { User } from "../models/index.js";
+import { config } from "../config/index.js";
 import { sendResponse } from "../utils/response.js";
 
 /**
