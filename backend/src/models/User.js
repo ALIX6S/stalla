@@ -1,5 +1,5 @@
 import { DataTypes, Model } from "sequelize";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 
 export const initUser = (sequelize) => {
   class User extends Model {
