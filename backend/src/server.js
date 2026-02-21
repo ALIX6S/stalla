@@ -1,64 +1,9 @@
-import express from "express";
-import cors from "cors";
-import swaggerUi from "swagger-ui-express";
-import path from "path";
-import { config } from "./config.js";
-import { initDatabase } from "./database.js";
-import { swaggerSpec } from "./swagger.js";
-import authRoutes from "./routes/authRoutes.js";
-import adminRoutes from "./routes/adminRoutes.js";
-import vendorRoutes from "./routes/vendorRoutes.js";
-import publicRoutes from "./routes/publicRoutes.js";
-import { sendResponse } from "./utils/response.js";
-import { runDebtJob, startDebtCronJob } from "./cron/debtJob.js";
-import { authenticate, authorize } from "./middlewares/auth.js";
+import { app } from "./app.js";
+import { config } from "./config/index.js";
+import { initDatabase } from "./models/index.js";
+import { startDebtCronJob } from "./jobs/debtJob.js";
 
-const app = express();
-
-app.use(cors({ origin: true }));
-app.use(express.json());
-app.use("/receipts", express.static(path.join(process.cwd(), "receipts")));
-
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-
-app.use("/api/auth", authRoutes);
-app.use("/api/admin", adminRoutes);
-app.use("/api/vendor", vendorRoutes);
-app.use("/api/v1/vendor", vendorRoutes);
-app.use("/api/public", publicRoutes);
-
-app.post("/api/admin/run-debt-job", authenticate, authorize("ADMIN"), async (req, res) => {
-  try {
-    const result = await runDebtJob();
-    return sendResponse(res, { status: 200, message: "Job des dettes exécuté", data: result });
-  } catch (err) {
-    return sendResponse(res, {
-      status: 500,
-      success: false,
-      message: "Erreur lors du job des dettes",
-      errors: { server: err.message },
-    });
-  }
-});
-
-app.get("/health", (req, res) => {
-  return sendResponse(res, {
-    status: 200,
-    message: "API STALLA opérationnelle",
-    data: { uptime: process.uptime() },
-  });
-});
-
-app.use((req, res) => {
-  return sendResponse(res, {
-    status: 404,
-    success: false,
-    message: "Ressource non trouvée",
-    errors: { path: req.originalUrl },
-  });
-});
-
-const start = async () => {
+async function start() {
   let dbOk = false;
   try {
     await initDatabase();
@@ -73,6 +18,6 @@ const start = async () => {
     console.log(`Serveur STALLA démarré sur http://localhost:${config.port}`);
     if (!dbOk) console.log("Mode sans base de données (MySQL requis pour l'API).");
   });
-};
+}
 
 start();
