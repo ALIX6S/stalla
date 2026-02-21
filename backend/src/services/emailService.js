@@ -1,11 +1,7 @@
-function getBrevoApiKey() {
-  return process.env.BREVO_API_KEY || null;
-}
+import { config } from "../config/index.js";
 
 async function sendBrevoEmail({ to, toName, subject, htmlContent }) {
-  const apiKey = getBrevoApiKey();
-  const senderEmail = process.env.BREVO_SENDER_EMAIL;
-  const senderName = process.env.BREVO_SENDER_NAME || "STALLA";
+  const { apiKey, senderEmail, senderName } = config.brevo;
 
   if (!apiKey || !senderEmail) {
     return { ok: false, reason: "Brevo not configured" };
