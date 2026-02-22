@@ -1,10 +1,8 @@
-import 'package:equatable/equatable.dart';
-
-class User extends Equatable {
+class User {
   final int id;
   final String name;
-  final String? email; // Passage en optionnel avec le "?"
-  final String phone;  // Nouveau champ obligatoire
+  final String? email;
+  final String phone;
   final String role;
 
   const User({
@@ -17,26 +15,11 @@ class User extends Equatable {
 
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
-      id: json['id'],
-      name: json['name'] ?? 'Utilisateur',
-      // On utilise ?? null pour l'email s'il n'existe pas
-      email: json['email'], 
-      // On s'assure que phone ne soit jamais null pour éviter le crash
-      phone: json['phone'] ?? '', 
-      role: json['role'] ?? 'VENDOR',
+      id: json['id'] as int,
+      name: (json['name'] as String?) ?? 'Utilisateur',
+      email: json['email'] as String?,
+      phone: (json['phone'] as String?) ?? '',
+      role: (json['role'] as String?) ?? 'VENDOR',
     );
   }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'email': email,
-      'phone': phone,
-      'role': role,
-    };
-  }
-
-  @override
-  List<Object?> get props => [id, name, email, phone, role];
 }
