@@ -1,33 +1,39 @@
 class AppConstants {
+  AppConstants._();
+
   static const String appName = 'STALLA';
+
+  /// Surchargeable : `--dart-define=API_BASE_URL=https://.../api`
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://stalla-production.up.railway.app/api',
+    defaultValue: 'http://localhost:4000/api',
   );
-  static const String supportPhone = '+22900000000';
-  // Valeurs possibles: 'orange' | 'earth'
-  static const String colorPalette = 'orange';
 
-  // Storage Keys
-  static const String tokenKey = 'auth_token';
-  static const String userKey = 'user_data';
+  static const String roleVendor = 'VENDOR';
 
-  // Routes
-  static const String loginRoute = '/login';
-  static const String registerRoute = '/register';
-  static const String homeRoute = '/home';
-  static const String standRoute = '/stand';
-  static const String debtsRoute = '/debts';
-  static const String paymentsRoute = '/payments';
-  static const String profileRoute = '/profile';
+  static const String categoryStandard = 'STANDARD';
+  static const String categoryPremium = 'PREMIUM';
 
-  // API Endpoints
-  static const String authLoginEndpoint = '/auth/login';
-  static const String authVendorApplicationEndpoint =
-      '/auth/vendor-application';
-  static const String vendorProfileEndpoint = '/vendor/profile';
-  static const String vendorMyStallEndpoint = '/vendor/my-stall';
-  static const String vendorBalanceEndpoint = '/vendor/balance';
-  static const String vendorPaymentsEndpoint = '/vendor/payments';
-  static const String vendorResetPasswordEndpoint = '/vendor/reset-password';
+  /// Zones fixes du marché.
+  static const Map<String, String> zoneLabels = {
+    'A': 'Zone A - Entrée',
+    'B': 'Zone B - Produits frais',
+    'C': 'Zone C - Textile',
+    'D': 'Zone D - Divers',
+  };
+
+  static String zoneLabel(String zone) => zoneLabels[zone] ?? 'Zone $zone';
+}
+
+class ApiEndpoints {
+  ApiEndpoints._();
+
+  static const String login = '/auth/login';
+  static const String vendorApplication = '/auth/vendor-application';
+  static const String vendorProfile = '/vendor/profile';
+  static const String vendorMyStall = '/vendor/my-stall';
+  static const String vendorBalance = '/vendor/balance';
+  static const String vendorPayments = '/vendor/payments';
+  static const String vendorResetPassword = '/vendor/reset-password';
+  static const String publicStandsOverview = '/public/stands/overview';
 }
