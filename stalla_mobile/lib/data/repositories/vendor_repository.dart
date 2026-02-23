@@ -1,127 +1,64 @@
-import 'package:dio/dio.dart';
 import '../../core/constants/app_constants.dart';
 import '../models/api_response.dart';
-import '../models/vendor_profile.dart';
 import '../models/debt.dart';
 import '../models/stand.dart';
-import '../models/user.dart';
+import '../models/vendor_profile.dart';
 import '../services/api_client.dart';
-import '../services/storage_service.dart';
 
 class VendorRepository {
-  final _apiClient = ApiClient().dio;
-  final _storage = StorageService();
+  final ApiClient _api;
 
+  const VendorRepository(this._api);
+
+  /// Profil vendeur + stand actif (un 404 sur le stand signifie « aucun stand »).
   Future<ApiResponse<VendorProfile>> getProfile() async {
-    final userData = _storage.getUserData();
-    if (userData == null) {
-      return ApiResponse(
-        success: false,
-        message: 'Session utilisateur introuvable',
-      );
+    final (profile, stall) = await (
+      _api.get<Map<String, dynamic>>(
+        ApiEndpoints.vendorProfile,
+        parse: (json) => json as Map<String, dynamic>,
+        errorMessage: 'Erreur lors de la récupération du profil',
+      ),
+      _api.get<Stand>(
+        ApiEndpoints.vendorMyStall,
+        parse: (json) => Stand.fromJson(json as Map<String, dynamic>),
+        errorMessage: 'Erreur lors de la récupération du stand',
+      ),
+    ).wait;
+
+    if (!profile.hasData) {
+      return ApiResponse(success: false, message: profile.message);
+    }
+    if (!stall.success && stall.statusCode != 404) {
+      return ApiResponse(success: false, message: stall.message);
     }
 
-    final user = User.fromJson(userData);
-
-    try {
-      final profileResponse = await _apiClient.get(AppConstants.vendorProfileEndpoint);
-      final profileApi = ApiResponse<Map<String, dynamic>>.fromJson(
-        profileResponse.data,
-        (data) => data as Map<String, dynamic>,
-      );
-
-      String? businessType;
-      String? supportPhone;
-      if (profileApi.success && profileApi.data != null) {
-        businessType = profileApi.data!['business_type'] as String?;
-        supportPhone = profileApi.data!['support_phone'] as String?;
-      }
-
-      final response = await _apiClient.get(AppConstants.vendorMyStallEndpoint);
-      final apiResponse = ApiResponse<Map<String, dynamic>>.fromJson(
-        response.data,
-        (data) => data as Map<String, dynamic>,
-      );
-
-      if (apiResponse.success && apiResponse.data != null) {
-        final stand = Stand.fromJson(apiResponse.data!);
-        return ApiResponse(
-          success: true,
-          message: apiResponse.message,
-          data: VendorProfile(
-            user: user,
-            stand: stand,
-            businessType: businessType,
-            supportPhone: supportPhone,
-          ),
-        );
-      }
-
-      return ApiResponse(
-        success: true,
-        data: VendorProfile(
-          user: user,
-          stand: null,
-          businessType: businessType,
-          supportPhone: supportPhone,
-        ),
-      );
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 404) {
-        return ApiResponse(
-          success: true,
-          message: e.response?.data['message'] ?? 'Aucun stand actif',
-          data: VendorProfile(user: user, stand: null),
-        );
-      }
-
-      return ApiResponse(
-        success: false,
-        message: e.response?.data['message'] ?? 'Erreur lors de la récupération du profil',
-      );
-    }
+    return ApiResponse(
+      success: true,
+      data: VendorProfile.fromJson(profile.data!, stand: stall.data),
+    );
   }
 
-  Future<ApiResponse<Debt>> getDebts() async {
-    try {
-      final response = await _apiClient.get(AppConstants.vendorBalanceEndpoint);
-      return ApiResponse<Debt>.fromJson(
-        response.data,
-        (data) => Debt.fromJson(data as Map<String, dynamic>),
-      );
-    } on DioException catch (e) {
-      return ApiResponse(
-        success: false,
-        message: e.response?.data['message'] ?? 'Erreur lors de la récupération de la balance',
-      );
-    }
+  Future<ApiResponse<Debt>> getDebt() {
+    return _api.get<Debt>(
+      ApiEndpoints.vendorBalance,
+      parse: (json) => Debt.fromJson(json as Map<String, dynamic>),
+      errorMessage: 'Erreur lors de la récupération de la balance',
+    );
   }
 
   Future<ApiResponse<void>> resetPassword({
     required String currentPassword,
     required String newPassword,
   }) async {
-    try {
-      final response = await _apiClient.post(
-        AppConstants.vendorResetPasswordEndpoint,
-        data: {
-          'current_password': currentPassword,
-          'new_password': newPassword,
-        },
-      );
-
-      final apiResponse = ApiResponse<dynamic>.fromJson(response.data, null);
-      return ApiResponse<void>(
-        success: apiResponse.success,
-        message: apiResponse.message,
-        errors: apiResponse.errors,
-      );
-    } on DioException catch (e) {
-      return ApiResponse<void>(
-        success: false,
-        message: e.response?.data['message'] ?? 'Erreur lors de la réinitialisation',
-        errors: e.response?.data['errors'],
-      );
-    }
+    final response = await _api.post<Object>(
+      ApiEndpoints.vendorResetPassword,
+      body: {
+        'current_password': currentPassword,
+        'new_password': newPassword,
+      },
+      parse: (json) => json as Object,
+      errorMessage: 'Erreur lors de la réinitialisation',
+    );
+    return ApiResponse(success: response.success, message: response.message);
   }
 }
