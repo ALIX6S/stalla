@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/constants/app_constants.dart';
 import '../providers/auth_provider.dart';
-import '../providers/vendor_provider.dart';
+import '../router/app_router.dart';
+import '../widgets/app_logo.dart';
+import '../widgets/auth_switch_link.dart';
+import '../widgets/field_label.dart';
+import '../widgets/primary_button.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -15,61 +18,43 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
+  final _identifierController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
-
-  // Variable pour basculer entre Email et Téléphone
   bool _isEmailLogin = true;
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _identifierController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
-  // Helpers pour le design dynamique et l'UX
-  String get _labelText =>
-      _isEmailLogin ? 'Adresse email' : 'Numéro de téléphone';
-  String get _hintText => _isEmailLogin ? 'vendeur@example.com' : '07 00 00 00';
-  TextInputType get _keyboardType =>
-      _isEmailLogin ? TextInputType.emailAddress : TextInputType.phone;
-  IconData get _prefixIcon =>
-      _isEmailLogin ? Icons.email_outlined : Icons.phone_android_outlined;
+  void _selectMode({required bool email}) {
+    if (_isEmailLogin == email) return;
+    setState(() {
+      _isEmailLogin = email;
+      _identifierController.clear();
+    });
+  }
 
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final authProvider = context.read<AuthProvider>();
-    final identifier = _emailController.text.trim();
+    var identifier = _identifierController.text.trim();
+    if (!_isEmailLogin) identifier = identifier.replaceAll(RegExp(r'\s+'), '');
 
-    final success = await authProvider.login(
-      identifier,
-      _passwordController.text,
+    final auth = context.read<AuthProvider>();
+    final success = await auth.login(identifier, _passwordController.text);
+
+    // En cas de succès, le routeur redirige vers l'accueil.
+    if (!mounted || success) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(auth.errorMessage ?? 'Erreur de connexion'),
+        backgroundColor: AppColors.error,
+      ),
     );
-
-    if (!mounted) return;
-
-    if (success) {
-      final vendorProvider = context.read<VendorProvider>();
-
-      // Chargement des données métier avant d'entrer dans l'app
-      await Future.wait([
-        vendorProvider.fetchProfile(),
-        vendorProvider.fetchDebts(),
-      ]);
-
-      if (!mounted) return;
-      context.go(AppConstants.homeRoute);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(authProvider.errorMessage ?? 'Erreur de connexion'),
-          backgroundColor: AppColors.error,
-        ),
-      );
-    }
   }
 
   @override
@@ -85,26 +70,12 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // --- 1. LOGO CENTRÉ ---
-                  Center(
-                    child: Container(
-                      height: 100,
-                      width: 100,
-                      margin: const EdgeInsets.only(bottom: 24),
-                      child: Image.asset(
-                        'assets/logo/logo.png',
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const Icon(
-                          Icons.store_rounded,
-                          size: 80,
-                          color: AppColors.orangePantone,
-                        ),
-                      ),
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.only(bottom: 24),
+                      child: AppLogo(size: 100),
                     ),
                   ),
-
-                  // --- 2. TEXTES DE BIENVENUE ---
                   Text(
                     'Connexion',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
@@ -118,59 +89,35 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: TextStyle(color: Colors.grey[600], fontSize: 16),
                   ),
                   const SizedBox(height: 32),
-
-                  // --- 3. SÉLECTEUR D'ONGLET (TOGGLE) ---
-                  Container(
-                    height: 55,
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[100],
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Row(
-                      children: [
-                        _buildTabItem(
-                            title: 'Email',
-                            isActive: _isEmailLogin,
-                            onTap: () => setState(() => _isEmailLogin = true)),
-                        _buildTabItem(
-                            title: 'Téléphone',
-                            isActive: !_isEmailLogin,
-                            onTap: () => setState(() => _isEmailLogin = false)),
-                      ],
-                    ),
+                  _ModeToggle(
+                    isEmail: _isEmailLogin,
+                    onChanged: (email) => _selectMode(email: email),
                   ),
                   const SizedBox(height: 32),
-
-                  // --- 4. CHAMP IDENTIFIANT (DYNAMIQUE) ---
-                  Text(
-                    _labelText,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w600, fontSize: 14),
-                  ),
-                  const SizedBox(height: 8),
+                  FieldLabel(
+                      _isEmailLogin ? 'Adresse email' : 'Numéro de téléphone'),
                   TextFormField(
-                    controller: _emailController,
-                    keyboardType: _keyboardType,
+                    controller: _identifierController,
+                    keyboardType: _isEmailLogin
+                        ? TextInputType.emailAddress
+                        : TextInputType.phone,
+                    autocorrect: false,
                     decoration: InputDecoration(
-                      hintText: _hintText,
-                      prefixIcon: Icon(_prefixIcon, size: 20),
+                      hintText:
+                          _isEmailLogin ? 'vendeur@example.com' : '+229 00 00 00 00',
+                      prefixIcon: Icon(
+                        _isEmailLogin
+                            ? Icons.email_outlined
+                            : Icons.phone_android_outlined,
+                        size: 20,
+                      ),
                     ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Ce champ est requis';
-                      }
-                      return null;
-                    },
+                    validator: (value) => (value == null || value.trim().isEmpty)
+                        ? 'Ce champ est requis'
+                        : null,
                   ),
                   const SizedBox(height: 20),
-
-                  // --- 5. CHAMP MOT DE PASSE ---
-                  const Text(
-                    'Mot de passe',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                  ),
-                  const SizedBox(height: 8),
+                  const FieldLabel('Mot de passe'),
                   TextFormField(
                     controller: _passwordController,
                     obscureText: !_isPasswordVisible,
@@ -179,81 +126,32 @@ class _LoginScreenState extends State<LoginScreen> {
                       prefixIcon: const Icon(Icons.lock_outline, size: 20),
                       suffixIcon: IconButton(
                         icon: Icon(
-                            _isPasswordVisible
-                                ? Icons.visibility_off
-                                : Icons.visibility,
-                            color: Colors.grey),
+                          _isPasswordVisible
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                          color: Colors.grey,
+                        ),
                         onPressed: () => setState(
                             () => _isPasswordVisible = !_isPasswordVisible),
                       ),
                     ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Entrez votre mot de passe';
-                      }
-                      return null;
-                    },
+                    validator: (value) => (value == null || value.isEmpty)
+                        ? 'Entrez votre mot de passe'
+                        : null,
                   ),
-
                   const SizedBox(height: 40),
-
-                  // --- 6. BOUTON DE CONNEXION ---
                   Consumer<AuthProvider>(
-                    builder: (context, authProvider, _) {
-                      final isLoading =
-                          authProvider.status == AuthStatus.loading;
-                      return SizedBox(
-                        width: double.infinity,
-                        height: 55,
-                        child: ElevatedButton(
-                          onPressed: isLoading ? null : _handleLogin,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.orangePantone,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16)),
-                            elevation: 0,
-                          ),
-                          child: isLoading
-                              ? const SizedBox(
-                                  height: 24,
-                                  width: 24,
-                                  child: CircularProgressIndicator(
-                                      color: Colors.white, strokeWidth: 2),
-                                )
-                              : const Text(
-                                  'Se connecter',
-                                  style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white),
-                                ),
-                        ),
-                      );
-                    },
+                    builder: (context, auth, _) => PrimaryButton(
+                      label: 'Se connecter',
+                      isLoading: auth.isBusy,
+                      onPressed: _handleLogin,
+                    ),
                   ),
                   const SizedBox(height: 12),
-                  Center(
-                    child: TextButton(
-                      onPressed: () => context.go(AppConstants.registerRoute),
-                      child: RichText(
-                        text: const TextSpan(
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          children: [
-                            TextSpan(
-                              text: 'Pas de compte ? ',
-                              style: TextStyle(color: Colors.black87),
-                            ),
-                            TextSpan(
-                              text: 'Demander un stand',
-                              style: TextStyle(color: AppColors.orangePantone),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                  AuthSwitchLink(
+                    prefix: 'Pas de compte ?',
+                    action: 'Demander un stand',
+                    onTap: () => context.go(AppRoutes.register),
                   ),
                 ],
               ),
@@ -263,12 +161,34 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
+}
 
-  // Widget personnalisé pour l'onglet du sélecteur
-  Widget _buildTabItem(
-      {required String title,
-      required bool isActive,
-      required VoidCallback onTap}) {
+class _ModeToggle extends StatelessWidget {
+  final bool isEmail;
+  final ValueChanged<bool> onChanged;
+
+  const _ModeToggle({required this.isEmail, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 55,
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          _tab('Email', isActive: isEmail, onTap: () => onChanged(true)),
+          _tab('Téléphone', isActive: !isEmail, onTap: () => onChanged(false)),
+        ],
+      ),
+    );
+  }
+
+  Widget _tab(String title,
+      {required bool isActive, required VoidCallback onTap}) {
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
@@ -280,9 +200,10 @@ class _LoginScreenState extends State<LoginScreen> {
             boxShadow: isActive
                 ? [
                     BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4))
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    )
                   ]
                 : [],
           ),
