@@ -1,50 +1,44 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'config/router.dart';
-import 'core/theme/app_theme.dart';
-import 'data/services/storage_service.dart';
+import 'package:provider/provider.dart';
+import 'app.dart';
+import 'data/repositories/auth_repository.dart';
+import 'data/repositories/payment_repository.dart';
+import 'data/repositories/stand_repository.dart';
+import 'data/repositories/vendor_repository.dart';
 import 'data/services/api_client.dart';
+import 'data/services/session_storage.dart';
 import 'presentation/providers/auth_provider.dart';
-import 'presentation/providers/vendor_provider.dart';
 import 'presentation/providers/payment_provider.dart';
+import 'presentation/providers/stands_provider.dart';
+import 'presentation/providers/vendor_provider.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Initialisation des services
-  await StorageService().init();
-  ApiClient().init();
-  
-  // Initialisation de la locale française
-  await initializeDateFormatting('fr_FR', null);
-  
-  runApp(const MyApp());
-}
+  await initializeDateFormatting('fr_FR');
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const session = SessionStorage();
+  final api = ApiClient(session);
 
-  @override
-  Widget build(BuildContext context) {
-    return MultiProvider(
+  final auth = AuthProvider(AuthRepository(api, session));
+  api.onUnauthorized = auth.handleSessionExpired;
+  await auth.restoreSession();
+
+  runApp(
+    MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AuthProvider()..checkAuthStatus()),
-        ChangeNotifierProvider(create: (_) => VendorProvider()),
-        ChangeNotifierProvider(create: (_) => PaymentProvider()),
+        ChangeNotifierProvider.value(value: auth),
+        ChangeNotifierProvider(
+          create: (_) => VendorProvider(VendorRepository(api)),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => PaymentProvider(PaymentRepository(api)),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => StandsProvider(StandRepository(api)),
+        ),
       ],
-      child: Builder(
-        builder: (context) {
-          final router = AppRouter().router;
-          
-          return MaterialApp.router(
-            title: 'STALLA',
-            debugShowCheckedModeBanner: false,
-            theme: AppTheme.lightTheme,
-            routerConfig: router,
-          );
-        },
-      ),
-    );
-  }
+      child: const StallaApp(),
+    ),
+  );
 }
