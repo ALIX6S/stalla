@@ -3,7 +3,9 @@ import '../../data/models/payment.dart';
 import '../../data/repositories/payment_repository.dart';
 
 class PaymentProvider extends ChangeNotifier {
-  final _paymentRepository = PaymentRepository();
+  final PaymentRepository _repository;
+
+  PaymentProvider(this._repository);
 
   List<Payment> _payments = [];
   bool _isLoading = false;
@@ -18,9 +20,8 @@ class PaymentProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
-    final response = await _paymentRepository.getPayments();
-
-    if (response.success && response.data != null) {
+    final response = await _repository.getPayments();
+    if (response.hasData) {
       _payments = response.data!;
     } else {
       _errorMessage = response.message;
@@ -30,11 +31,7 @@ class PaymentProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<String?> getReceiptUrl(String receiptPath) async {
-    return await _paymentRepository.downloadReceipt(receiptPath);
-  }
-
-  void clearData() {
+  void clear() {
     _payments = [];
     _errorMessage = null;
     notifyListeners();
