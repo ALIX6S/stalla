@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/formatters.dart';
+import '../../data/models/payment.dart';
 import '../providers/payment_provider.dart';
-import '../widgets/loading_widget.dart';
-import '../widgets/error_widget.dart';
+import '../widgets/async_body.dart';
+import '../widgets/empty_state.dart';
+import '../widgets/page_app_bar.dart';
 
 class PaymentsScreen extends StatefulWidget {
   const PaymentsScreen({super.key});
@@ -18,70 +20,62 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<PaymentProvider>().fetchPayments();
+      if (mounted) context.read<PaymentProvider>().fetchPayments();
     });
-  }
-
-  String _formatCurrency(int amount) {
-    final formatter = NumberFormat('#,###', 'fr_FR');
-    return '${formatter.format(amount)} F';
-  }
-
-  String _formatDate(String dateString) {
-    try {
-      final date = DateTime.parse(dateString);
-      return DateFormat('dd MMMM yyyy', 'fr_FR').format(date);
-    } catch (e) {
-      return dateString;
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: const Text('Historique', style: TextStyle(fontWeight: FontWeight.bold)),
-        centerTitle: true,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: Colors.black,
-      ),
+      backgroundColor: AppColors.pageBackground,
+      appBar: buildPageAppBar('Historique'),
       body: Consumer<PaymentProvider>(
-        builder: (context, paymentProvider, _) {
-          if (paymentProvider.isLoading && paymentProvider.payments.isEmpty) {
-            return const LoadingWidget(message: 'Chargement...');
-          }
+        builder: (context, provider, _) {
+          final payments = provider.payments;
 
-          if (paymentProvider.errorMessage != null && paymentProvider.payments.isEmpty) {
-            return ErrorDisplay(
-              message: paymentProvider.errorMessage!,
-              onRetry: () => paymentProvider.fetchPayments(),
-            );
-          }
-
-          final payments = paymentProvider.payments;
-
-          return RefreshIndicator(
-            onRefresh: () => paymentProvider.fetchPayments(),
-            color: AppColors.orangePantone,
-            child: payments.isEmpty
-                ? _buildEmptyState(context)
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                    itemCount: payments.length,
-                    itemBuilder: (context, index) {
-                      final payment = payments[index];
-                      return _buildPaymentCard(payment);
-                    },
-                  ),
+          return AsyncBody(
+            isLoading: provider.isLoading,
+            hasData: payments.isNotEmpty,
+            error: provider.errorMessage,
+            onRefresh: provider.fetchPayments,
+            child: RefreshIndicator(
+              onRefresh: provider.fetchPayments,
+              color: AppColors.orangePantone,
+              child: payments.isEmpty
+                  ? ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        SizedBox(
+                          height: MediaQuery.sizeOf(context).height * 0.6,
+                          child: const EmptyState(
+                            icon: Icons.history_toggle_off,
+                            title: 'Aucun paiement enregistré',
+                            subtitle: 'Vos paiements apparaîtront ici.',
+                          ),
+                        ),
+                      ],
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(20, 10, 20, 100),
+                      itemCount: payments.length,
+                      itemBuilder: (context, index) =>
+                          _PaymentCard(payment: payments[index]),
+                    ),
+            ),
           );
         },
       ),
     );
   }
+}
 
-  Widget _buildPaymentCard(dynamic payment) {
+class _PaymentCard extends StatelessWidget {
+  final Payment payment;
+
+  const _PaymentCard({required this.payment});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -100,13 +94,10 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
         child: IntrinsicHeight(
           child: Row(
             children: [
-              Container(
-                width: 6,
-                color: AppColors.orangePantone,
-              ),
+              Container(width: 6, color: AppColors.orangePantone),
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.all(16.0),
+                  padding: const EdgeInsets.all(16),
                   child: Column(
                     children: [
                       Row(
@@ -114,39 +105,31 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                           Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: AppColors.orangePantone.withValues(alpha: 0.1),
+                              color: AppColors.orangePantone
+                                  .withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: const Icon(
-                              Icons.payments_outlined,
-                              color: AppColors.orangePantone,
-                              size: 24,
-                            ),
+                            child: const Icon(Icons.payments_outlined,
+                                color: AppColors.orangePantone, size: 24),
                           ),
                           const SizedBox(width: 16),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  'Paiement enregistré',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                ),
-                                Text(
-                                  _formatDate(payment.date),
-                                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                                ),
+                                const Text('Paiement enregistré',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16)),
+                                Text(formatDate(payment.date),
+                                    style: TextStyle(
+                                        color: Colors.grey[600], fontSize: 13)),
                               ],
                             ),
                           ),
-                          Text(
-                            _formatCurrency(payment.amount),
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 17,
-                              color: Colors.black,
-                            ),
-                          ),
+                          Text(formatCurrencyShort(payment.amount),
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w800, fontSize: 17)),
                         ],
                       ),
                       const Padding(
@@ -158,19 +141,18 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                         children: [
                           Row(
                             children: [
-                              Icon(Icons.calendar_month, size: 14, color: Colors.grey[400]),
+                              Icon(Icons.calendar_month,
+                                  size: 14, color: Colors.grey[400]),
                               const SizedBox(width: 4),
-                              Text(
-                                'Période: ${payment.monthPaid}',
-                                style: TextStyle(color: Colors.grey[500], fontSize: 12),
-                              ),
+                              Text('Période: ${payment.period}',
+                                  style: TextStyle(
+                                      color: Colors.grey[500], fontSize: 12)),
                             ],
                           ),
                           if ((payment.stallCode ?? '').isNotEmpty)
-                            Text(
-                              'Stand ${payment.stallCode}',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                            ),
+                            Text('Stand ${payment.stallCode}',
+                                style: const TextStyle(
+                                    fontSize: 12, fontWeight: FontWeight.w600)),
                         ],
                       ),
                     ],
@@ -180,27 +162,6 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyState(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.history_toggle_off, size: 100, color: Colors.grey[300]),
-          const SizedBox(height: 20),
-          const Text(
-            'Aucun paiement enregistré',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Vos paiements apparaîtront ici.',
-            style: TextStyle(color: Colors.grey[500]),
-          ),
-        ],
       ),
     );
   }
