@@ -1,7 +1,9 @@
-import "package:flutter/material.dart";
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../core/constants/app_constants.dart';
+import '../../core/theme/app_colors.dart';
+import '../router/app_router.dart';
+import '../widgets/app_logo.dart';
 
 class LandingPage extends StatelessWidget {
   const LandingPage({super.key});
@@ -10,8 +12,8 @@ class LandingPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
+        fit: StackFit.expand,
         children: [
-          // Background image with dark overlay
           Container(
             decoration: const BoxDecoration(
               image: DecorationImage(
@@ -19,7 +21,7 @@ class LandingPage extends StatelessWidget {
                 fit: BoxFit.cover,
               ),
             ),
-            child: Container(
+            child: DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
@@ -32,48 +34,35 @@ class LandingPage extends StatelessWidget {
               ),
             ),
           ),
-
-          // Content
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 30.0, vertical: 32.0),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 30, vertical: 32),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Logo + Login button row
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      const Spacer(),
-                      TextButton(
-                        onPressed: () => context.go(AppConstants.loginRoute),
-                        style: TextButton.styleFrom(
-                          backgroundColor: const Color(0xFFFF6B2C),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 20, vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 2,
-                        ),
-                        child: Text(
-                          'Se connecter',
-                          style: GoogleFonts.poppins(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () => context.go(AppRoutes.login),
+                      style: TextButton.styleFrom(
+                        backgroundColor: AppColors.orangePantone,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
                       ),
-                    ],
+                      child: Text(
+                        'Se connecter',
+                        style: GoogleFonts.poppins(
+                            fontSize: 14, fontWeight: FontWeight.w600),
+                      ),
+                    ),
                   ),
-
                   const Spacer(),
-
-                  // Logo (moved and enlarged)
                   Container(
-                    height: 90,
-                    width: 90,
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(18),
@@ -84,20 +73,9 @@ class LandingPage extends StatelessWidget {
                         )
                       ],
                     ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(18),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12.0),
-                        child: Image.asset(
-                          'assets/logo/logo.png',
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                    ),
+                    child: const AppLogo(size: 66),
                   ),
                   const SizedBox(height: 24),
-
-                  // Hero text
                   Text(
                     'Trouvez votre zone\nidéale au marché.',
                     style: GoogleFonts.poppins(
@@ -110,17 +88,12 @@ class LandingPage extends StatelessWidget {
                   const SizedBox(height: 16),
                   Text(
                     "L'application tout-en-un pour les commerçants du marché.",
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      color: Colors.white70,
-                    ),
+                    style:
+                        GoogleFonts.poppins(fontSize: 16, color: Colors.white70),
                   ),
-
                   const SizedBox(height: 40),
-
-                  // View stands link (orange)
                   GestureDetector(
-                    onTap: () => context.push('/stands'),
+                    onTap: () => context.push(AppRoutes.stands),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -128,19 +101,18 @@ class LandingPage extends StatelessWidget {
                           'Voir les stands disponibles',
                           style: GoogleFonts.poppins(
                             fontSize: 15,
-                            color: const Color(0xFFFF6B2C),
+                            color: AppColors.orangePantone,
                             fontWeight: FontWeight.w600,
                             decoration: TextDecoration.underline,
-                            decorationColor: const Color(0xFFFF6B2C),
+                            decorationColor: AppColors.orangePantone,
                           ),
                         ),
                         const SizedBox(width: 6),
-                        const Icon(Icons.arrow_forward, color: Color(0xFFFF6B2C), size: 18),
+                        const Icon(Icons.arrow_forward,
+                            color: AppColors.orangePantone, size: 18),
                       ],
                     ),
                   ),
-
-
                   const SizedBox(height: 32),
                 ],
               ),
