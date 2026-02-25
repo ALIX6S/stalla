@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../data/repositories/stand_repository.dart';
+import 'package:provider/provider.dart';
+import '../../core/constants/app_constants.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/utils/formatters.dart';
+import '../../data/models/stand_zone_overview.dart';
+import '../providers/stands_provider.dart';
+import '../router/app_router.dart';
+import '../widgets/async_body.dart';
 
 class StandListScreen extends StatefulWidget {
   const StandListScreen({super.key});
@@ -11,38 +18,20 @@ class StandListScreen extends StatefulWidget {
 }
 
 class _StandListScreenState extends State<StandListScreen> {
-  final _repository = StandRepository();
-  List<StandZoneOverview> _zones = [];
-  bool _loading = true;
-  String? _error;
-  int? _expandedIndex;
+  String? _expandedZone;
 
   @override
   void initState() {
     super.initState();
-    _loadStands();
-  }
-
-  Future<void> _loadStands() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    final response = await _repository.getPublicStandsOverview();
-    setState(() {
-      _loading = false;
-      if (response.success) {
-        _zones = response.data!;
-      } else {
-        _error = response.message;
-      }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<StandsProvider>().load();
     });
   }
 
   void _requestStand(String zone, String category) {
     context.push(
-      '/register',
-      extra: {'zone': zone, 'category': category},
+      AppRoutes.register,
+      extra: RegisterArgs(zone: zone, category: category),
     );
   }
 
@@ -51,55 +40,48 @@ class _StandListScreenState extends State<StandListScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F8F8),
       appBar: AppBar(
-        title: Text(
-          'Stands Disponibles',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-        ),
+        title: Text('Stands Disponibles',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
         elevation: 0,
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(_error!, style: const TextStyle(color: Colors.red)),
-                      const SizedBox(height: 12),
-                      ElevatedButton(
-                        onPressed: _loadStands,
-                        child: const Text('Réessayer'),
-                      ),
-                    ],
-                  ),
-                )
-              : _zones.isEmpty
-                  ? Center(
-                      child: Text(
-                        'Aucun stand disponible pour le moment.',
-                        style: GoogleFonts.poppins(color: Colors.grey),
-                      ),
-                    )
-                  : ListView.builder(
+      body: Consumer<StandsProvider>(
+        builder: (context, provider, _) {
+          final zones = provider.zones;
+          return AsyncBody(
+            isLoading: provider.isLoading,
+            hasData: zones.isNotEmpty,
+            error: provider.errorMessage,
+            onRefresh: provider.load,
+            child: zones.isEmpty
+                ? Center(
+                    child: Text('Aucun stand disponible pour le moment.',
+                        style: GoogleFonts.poppins(color: Colors.grey)),
+                  )
+                : RefreshIndicator(
+                    onRefresh: provider.load,
+                    color: AppColors.orangePantone,
+                    child: ListView.builder(
+                      physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.all(16),
-                      itemCount: _zones.length,
+                      itemCount: zones.length,
                       itemBuilder: (context, index) {
-                        final zone = _zones[index];
-                        final isExpanded = _expandedIndex == index;
+                        final zone = zones[index];
+                        final isExpanded = _expandedZone == zone.zone;
                         return _ZoneCard(
                           zone: zone,
                           isExpanded: isExpanded,
-                          onTap: () {
-                            setState(() {
-                              _expandedIndex = isExpanded ? null : index;
-                            });
-                          },
+                          onTap: () => setState(
+                              () => _expandedZone = isExpanded ? null : zone.zone),
                           onRequest: _requestStand,
                         );
                       },
                     ),
+                  ),
+          );
+        },
+      ),
     );
   }
 }
@@ -116,24 +98,6 @@ class _ZoneCard extends StatelessWidget {
     required this.onTap,
     required this.onRequest,
   });
-
-  String _formatPrice(int min, int max) =>
-      '${_fmt(max)} CFA';
-
-  String _fmt(int value) => value.toString().replaceAllMapped(
-        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-        (m) => '${m[1]} ',
-      );
-
-  String _getZoneLabel(String zone) {
-    const labels = {
-      'A': 'Zone A - Entrée',
-      'B': 'Zone B - Produits frais',
-      'C': 'Zone C - Textile',
-      'D': 'Zone D - Divers',
-    };
-    return labels[zone] ?? 'Zone $zone';
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -152,7 +116,6 @@ class _ZoneCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // Zone header
           InkWell(
             onTap: onTap,
             borderRadius: BorderRadius.circular(16),
@@ -164,7 +127,7 @@ class _ZoneCard extends StatelessWidget {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFF6B2C).withValues(alpha: 0.1),
+                      color: AppColors.orangePantone.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Center(
@@ -173,7 +136,7 @@ class _ZoneCard extends StatelessWidget {
                         style: GoogleFonts.poppins(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: const Color(0xFFFF6B2C),
+                          color: AppColors.orangePantone,
                         ),
                       ),
                     ),
@@ -184,32 +147,24 @@ class _ZoneCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _getZoneLabel(zone.zone),
+                          AppConstants.zoneLabel(zone.zone),
                           style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 16,
-                          ),
+                              fontWeight: FontWeight.w600, fontSize: 16),
                         ),
                         Text(
-                          '${zone.standardAvailable + zone.premiumAvailable} stand(s) disponible(s)',
+                          '${zone.totalAvailable} stand(s) disponible(s)',
                           style: GoogleFonts.poppins(
-                            color: Colors.grey[600],
-                            fontSize: 13,
-                          ),
+                              color: Colors.grey[600], fontSize: 13),
                         ),
                       ],
                     ),
                   ),
-                  Icon(
-                    isExpanded ? Icons.expand_less : Icons.expand_more,
-                    color: Colors.grey,
-                  ),
+                  Icon(isExpanded ? Icons.expand_less : Icons.expand_more,
+                      color: Colors.grey),
                 ],
               ),
             ),
           ),
-
-          // Expanded content
           if (isExpanded)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -217,28 +172,20 @@ class _ZoneCard extends StatelessWidget {
                 children: [
                   const Divider(),
                   const SizedBox(height: 8),
-                  // Standard
                   _CategoryRow(
                     label: 'Standard',
-                    available: zone.standardAvailable,
-                    priceRange: _formatPrice(
-                        zone.standardPriceMin, zone.standardPriceMax),
+                    overview: zone.standard,
                     color: const Color(0xFF4CAF50),
-                    onRequest: zone.standardAvailable > 0
-                        ? () => onRequest(zone.zone, 'STANDARD')
-                        : null,
+                    onRequest: () =>
+                        onRequest(zone.zone, AppConstants.categoryStandard),
                   ),
                   const SizedBox(height: 10),
-                  // Premium
                   _CategoryRow(
                     label: 'Premium',
-                    available: zone.premiumAvailable,
-                    priceRange: _formatPrice(
-                        zone.premiumPriceMin, zone.premiumPriceMax),
-                    color: const Color(0xFFFF6B2C),
-                    onRequest: zone.premiumAvailable > 0
-                        ? () => onRequest(zone.zone, 'PREMIUM')
-                        : null,
+                    overview: zone.premium,
+                    color: AppColors.orangePantone,
+                    onRequest: () =>
+                        onRequest(zone.zone, AppConstants.categoryPremium),
                   ),
                 ],
               ),
@@ -251,21 +198,20 @@ class _ZoneCard extends StatelessWidget {
 
 class _CategoryRow extends StatelessWidget {
   final String label;
-  final int available;
-  final String priceRange;
+  final CategoryOverview overview;
   final Color color;
-  final VoidCallback? onRequest;
+  final VoidCallback onRequest;
 
   const _CategoryRow({
     required this.label,
-    required this.available,
-    required this.priceRange,
+    required this.overview,
     required this.color,
-    this.onRequest,
+    required this.onRequest,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isAvailable = overview.available > 0;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -278,16 +224,13 @@ class _CategoryRow extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(20),
-            ),
+                color: color, borderRadius: BorderRadius.circular(20)),
             child: Text(
               label,
               style: GoogleFonts.poppins(
-                color: Colors.white,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600),
             ),
           ),
           const SizedBox(width: 10),
@@ -295,24 +238,17 @@ class _CategoryRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '$available disponible(s)',
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                  ),
-                ),
-                Text(
-                  priceRange,
-                  style: GoogleFonts.poppins(
-                    color: Colors.grey[600],
-                    fontSize: 12,
-                  ),
-                ),
+                Text('${overview.available} disponible(s)',
+                    style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w600, fontSize: 13)),
+                if (isAvailable)
+                  Text(formatCurrency(overview.priceMax),
+                      style: GoogleFonts.poppins(
+                          color: Colors.grey[600], fontSize: 12)),
               ],
             ),
           ),
-          if (onRequest != null)
+          if (isAvailable)
             TextButton(
               onPressed: onRequest,
               style: TextButton.styleFrom(
@@ -320,22 +256,13 @@ class _CategoryRow extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               ),
-              child: Text(
-                'Demander',
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                ),
-              ),
+              child: Text('Demander',
+                  style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w600, fontSize: 13)),
             )
           else
-            Text(
-              'Complet',
-              style: GoogleFonts.poppins(
-                color: Colors.grey,
-                fontSize: 12,
-              ),
-            ),
+            Text('Complet',
+                style: GoogleFonts.poppins(color: Colors.grey, fontSize: 12)),
         ],
       ),
     );
