@@ -1,9 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/constants/app_constants.dart';
+import '../providers/vendor_provider.dart';
+import '../router/app_router.dart';
 
-class MainLayout extends StatelessWidget {
+class _NavItem {
+  final IconData icon;
+  final String label;
+
+  const _NavItem(this.icon, this.label);
+}
+
+/// Coque de l'espace vendeur : barre de navigation flottante + chargement initial.
+class MainLayout extends StatefulWidget {
   final Widget child;
   final String currentPath;
 
@@ -13,100 +23,99 @@ class MainLayout extends StatelessWidget {
     required this.currentPath,
   });
 
-  int get _currentIndex {
-    if (currentPath.startsWith('/home')) return 0;
-    if (currentPath.startsWith('/stand')) return 1;
-    if (currentPath.startsWith('/debts')) return 2;
-    if (currentPath.startsWith('/payments')) return 3;
-    if (currentPath.startsWith('/profile')) return 4;
-    return 0;
+  @override
+  State<MainLayout> createState() => _MainLayoutState();
+}
+
+class _MainLayoutState extends State<MainLayout> {
+  // Même ordre que AppRoutes.tabs.
+  static const _items = [
+    _NavItem(Icons.home_rounded, 'Accueil'),
+    _NavItem(Icons.store_rounded, 'Stand'),
+    _NavItem(Icons.warning_amber_rounded, 'Dettes'),
+    _NavItem(Icons.receipt_long_rounded, 'Ventes'),
+    _NavItem(Icons.person_rounded, 'Profil'),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<VendorProvider>().load();
+    });
   }
 
-  void _onItemTapped(BuildContext context, int index) {
-    final routes = [
-      AppConstants.homeRoute,
-      AppConstants.standRoute,
-      AppConstants.debtsRoute,
-      AppConstants.paymentsRoute,
-      AppConstants.profileRoute,
-    ];
-    if (_currentIndex != index) {
-      context.go(routes[index]);
-    }
+  int get _currentIndex {
+    final index = AppRoutes.tabs.indexOf(widget.currentPath);
+    return index < 0 ? 0 : index;
+  }
+
+  void _onItemTapped(int index) {
+    if (_currentIndex != index) context.go(AppRoutes.tabs[index]);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBody: true, // Permet au contenu de passer sous la barre flottante
-      body: child,
-      bottomNavigationBar: _buildModernNavBar(context),
-    );
-  }
-
-  Widget _buildModernNavBar(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 20), // Marges pour l'effet flottant
-      height: 70,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildNavItem(0, Icons.home_rounded, 'Accueil'),
-          _buildNavItem(1, Icons.store_rounded, 'Stand'),
-          _buildNavItem(2, Icons.warning_amber_rounded, 'Dettes'),
-          _buildNavItem(3, Icons.receipt_long_rounded, 'Ventes'),
-          _buildNavItem(4, Icons.person_rounded, 'Profil'),
-        ],
+      extendBody: true,
+      body: widget.child,
+      bottomNavigationBar: Container(
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+        height: 70,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            for (var i = 0; i < _items.length; i++) _buildNavItem(i),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildNavItem(int index, IconData icon, String label) {
+  Widget _buildNavItem(int index) {
+    final item = _items[index];
     final isSelected = _currentIndex == index;
-    final color = isSelected ? AppColors.orangePantone : Colors.grey.withValues(alpha: 0.6);
+    final color =
+        isSelected ? AppColors.orangePantone : Colors.grey.withValues(alpha: 0.6);
 
-    return Builder(
-      builder: (context) => InkWell(
-        onTap: () => _onItemTapped(context, index),
-        splashColor: Colors.transparent,
-        highlightColor: Colors.transparent,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: isSelected ? AppColors.orangePantone.withValues(alpha: 0.1) : Colors.transparent,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
+    return InkWell(
+      onTap: () => _onItemTapped(index),
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.orangePantone.withValues(alpha: 0.1)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(item.icon, color: color, size: 26),
+            const SizedBox(height: 4),
+            Text(
+              item.label,
+              style: TextStyle(
                 color: color,
-                size: 26,
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
               ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 10,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
