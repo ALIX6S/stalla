@@ -1,7 +1,7 @@
-export const API_BASE_URL =
+export const API_BASE_URL: string =
   import.meta.env.VITE_API_BASE_URL || "https://stalla-production.up.railway.app/api";
 
 export const STORAGE_KEYS = {
   token: "stalla_admin_token",
   user: "stalla_admin_user",
-};
+} as const;
