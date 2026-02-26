@@ -830,3 +830,9 @@ select {
     grid-template-columns: 1fr;
   }
 }
+
+.row-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
