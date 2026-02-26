@@ -1,57 +1,51 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { forgotPassword } from "../authService";
+import type { FormEvent } from "react";
+import { Link } from "react-router-dom";
+import { Alert } from "../../../shared/components/Alert";
+import { AuthShell } from "../../../shared/components/AuthShell";
+import { FormField } from "../../../shared/components/FormField";
+import { useFeedback } from "../../../shared/hooks/useFeedback";
+import { forgotPassword } from "../services/authService";
 
 export function ForgotPasswordPage() {
-  const navigate = useNavigate();
+  const { feedback, success, error, clear } = useFeedback();
   const [email, setEmail] = useState("");
-  const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (event: React.FormEvent) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setLoading(true);
-    setMessage(null);
+    clear();
     const response = await forgotPassword({ email: email.trim() });
     setLoading(false);
-    setMessage(response.message);
+    if (response.success) success(response.message);
+    else error(response.message);
   };
 
   return (
-    <div className="auth-shell">
-      <div className="auth-card-modern">
-        <div className="auth-head">
-          <div className="auth-logo-badge">
-            <img src="/logo.png" alt="Stalla" />
-          </div>
-          <h1>Mot de passe oublié</h1>
-          <p className="subtitle">Entrez votre email admin pour recevoir un lien de réinitialisation.</p>
-        </div>
+    <AuthShell
+      title="Mot de passe oublié"
+      subtitle="Entrez votre email admin pour recevoir un lien de réinitialisation."
+      footer={<Link to="/login">Retour à la connexion</Link>}
+    >
+      {feedback && <Alert type={feedback.type}>{feedback.text}</Alert>}
 
-        {message && <div className={`alert ${message.includes("envoyé") ? "success" : ""}`}>{message}</div>}
-
-        <form onSubmit={handleSubmit} className="form-stack">
-          <div className="form-field">
-            <label>Email admin</label>
-            <input
-              type="email"
-              placeholder="admin@stalla.com"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-            />
-          </div>
-          <button className="btn-primary" type="submit" disabled={loading}>
-            {loading ? "Envoi..." : "Envoyer le lien"}
-          </button>
-        </form>
-
-        <div className="auth-footer">
-          <a href="#" onClick={(event) => { event.preventDefault(); navigate("/login"); }}>
-            Retour à la connexion
-          </a>
-        </div>
-      </div>
-    </div>
+      <form onSubmit={handleSubmit} className="form-stack">
+        <FormField label="Email admin" htmlFor="email">
+          <input
+            id="email"
+            type="email"
+            placeholder="admin@stalla.com"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            autoComplete="email"
+            required
+          />
+        </FormField>
+        <button className="btn-primary" type="submit" disabled={loading}>
+          {loading ? "Envoi..." : "Envoyer le lien"}
+        </button>
+      </form>
+    </AuthShell>
   );
 }
